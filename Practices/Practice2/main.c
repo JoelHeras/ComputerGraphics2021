@@ -4,6 +4,76 @@
 #include <sys/stat.h>
 #include <math.h>
 
+void checkData(const char* filename,int *vertices,int *faces){
+    FILE *object;
+    float x,y,z;
+    int v=0,f=0;
+    unsigned int p1,p2,p3;
+    char type;
+    ///Reading data in the file 
+    object=fopen(filename,"r");
+    if(!object){
+        printf("\tThe archive is empty or it doesn't exist\n");
+        exit (0);
+    }
+    while(type!=EOF){
+        type=fgetc(object);
+        if(type=='v'){
+            v++;
+            fscanf(object,"%f",&x);
+            fscanf(object,"%f",&y);
+            fscanf(object,"%f",&z);
+            //printf("Vertice: %c %f %f %f \n",type,x,y,z);
+        }
+        else if(type=='f'){
+            f++;
+            fscanf(object,"%d",&p1);
+            fscanf(object,"%d",&p2);
+            fscanf(object,"%d",&p3);
+        }
+    }    
+    *vertices=v;
+    *faces=f;
+    printf("Vertices in the object %d\n",*vertices);
+    printf("Faces in the object: %d\n",*faces);
+    fclose(object);
+    object=NULL;
+}
+
+void fillMatrix(const char* filename,float ***Point3d, int ***Triangle){
+    int i=0,j=0;
+    unsigned int p1,p2,p3;
+    float x,y,z;
+    char type='c';
+    FILE *object;
+    object=fopen(filename,"r");        
+    while(type!=EOF){
+        type=fgetc(object);
+        if(type=='v'){                        
+            fscanf(object,"%f",&x);
+            fscanf(object,"%f",&y);
+            fscanf(object,"%f",&z);
+            *Point3d[i][0]=x;
+            *Point3d[i][1]=y;
+            *Point3d[i][2]=z;
+            i++;
+        }
+        else if(type=='f'){            
+            fscanf(object,"%d",&p1);
+            fscanf(object,"%d",&p2);
+            fscanf(object,"%d",&p3);
+            *Triangle[j][0]=p1;
+            *Triangle[j][1]=p2;
+            *Triangle[j][2]=p3;
+            j++;
+        }
+    }
+    printf("\tPoints saved: %d\n",i);
+    printf("\tTriangles saved: %d\n",j);    
+    fclose(object);
+}
+
+
 int main(){
     const  char* filename="model.obj";
     FILE *object;
@@ -17,7 +87,7 @@ int main(){
     float x1,x2,y1,y2;
     int objFrame;
     float centerX,centerY,centerZ;
-    int imageFrame=100;
+    int imageFrame=1024;
     float frameCenter;
     float datPoint[4][3];
     unsigned int p1,p2,p3;    
@@ -25,32 +95,11 @@ int main(){
     float **Point3d=NULL;
     int **frame=NULL;
     ///Reading data in the file 
-    object=fopen(filename,"r");
-    if(!object){
-        printf("\tThe archive is empty or it doesn't exist\n");
-        exit (0);
-    }
-    while(type!=EOF){
-        type=fgetc(object);
-        if(type=='v'){
-            vertices++;
-            fscanf(object,"%f",&x);
-            fscanf(object,"%f",&y);
-            fscanf(object,"%f",&z);
-            //printf("Vertice: %c %f %f %f \n",type,x,y,z);
-        }
-        else if(type=='f'){
-            faces++;
-            fscanf(object,"%d",&p1);
-            fscanf(object,"%d",&p2);
-            fscanf(object,"%d",&p3);
-        }
-    }    
-    printf("Vertices in the object %d\n",vertices);
-    printf("Faces in the object: %d\n",faces);
-    fclose(object);
-    object=NULL;
+    checkData(filename,&vertices,&faces);        
     //Create matrix for data
+    printf("Creating matrixes");    
+    //crateMatrix(vertices,faces,&Point3d,&Triangle);
+    //exit(0);
     Point3d=(float**)malloc(vertices*sizeof(float*));//Create rows for matrix for vertices
     for(i=0;i<vertices;i++)
         Point3d[i]=(float*)malloc(3*sizeof(float));//Create rows for matrix for faces
@@ -58,8 +107,10 @@ int main(){
     for(i=0;i<faces;i++)
         Triangle[i]=(int*)malloc(3*sizeof(int));
     /*End programm if isn't there any point*/
-    /*if (vertices==0 || faces==0)
-        exit (0);*/        
+    if (vertices==0 || faces==0)
+        exit (0);
+    //Fill the matrixes
+    //fillMatrix(filename,&Point3d,&Triangle);
     i=0;
     j=0;
     type='c';
@@ -88,12 +139,6 @@ int main(){
     printf("\tPoints saved: %d\n",i);
     printf("\tTriangles saved: %d\n",j);    
     fclose(object);
-
-    
-    /*printf("Vertices\n");
-    for(i=0;i<vertices;i++)
-        printf("v %f %f %f\n",Point3d[i][0],Point3d[i][1],Point3d[i][2]);
-    */
     /*Next step resazing*/
     //We asume the first point has the highest and the lowest points
     //first row of the matrix is for Maximun values
@@ -126,8 +171,6 @@ int main(){
     //Calculate the distance between Maxs and Mins                
     //The tird row is used for the distance between max and mins, respectibly    
     for(i=0;i<3;i++){
-        /*For max[i]=|min[i]|*/
-        //if(Point3d[0][i]==Point3d[1])
          /*For    max[i] && min[i] >0 */
         if(datPoint[0][i]>0 && datPoint[1][i]>0)
             datPoint[2][i]=datPoint[0][i]-datPoint[1][i];            
@@ -227,14 +270,9 @@ int main(){
     //Resize the object
     for (i=0;i<vertices;i++)
         for(j=0;j<3;j++)
-        Point3d[i][j]=(Point3d[i][j]*(imageFrame*0.98))/objFrame;
-    /*for( i = 0; i < vertices; i++)
-        for (j=0;j<2;j++)
-            Point3d[i][j]=frameCenter+(Point3d[i][j]);    
-    for(i=0;i<vertices;i++)
-        printf("v %f %f %f\n",Point3d[i][0],Point3d[i][1],Point3d[i][2]);*/
-       
+        Point3d[i][j]=(Point3d[i][j]*(imageFrame*0.98))/objFrame;           
     imageFrame++;        
+    
     //create the information matrix to make the frame
     frame=(int**)malloc(imageFrame*sizeof(int*));//Create rows for matrix for frame
     for(i=0;i<imageFrame;i++)
@@ -279,20 +317,7 @@ int main(){
         t=frameCenter+((int)Point3d[i][0]*-1);
        // printf("%d %d ",r,t);
         frame[r][t]=1;
-    }
-    /*printf("Data in the frame\n");
-    for(i=0;i<objFrame;i++){
-        for(j=0;j<objFrame;j++)
-            printf("%d ",frame[i][j]);
-            printf("\n");
-    }*/
-    //Connect the face points
-    /*for (i = 0; i < faces; i++){       //Point3d [#][eje] [1][0]->eje x punto 1
-        if(Point3d[Triangle[i][0]][0]>Point3d[Triangle[i][1]][0])//X1 X2
-            x1=Point3d
-    }
-    */
-
+    }    
     //Create the image
     image=fopen("render.ppm","w");
     fprintf(image,"P3\n%d %d\n255\n",imageFrame,imageFrame);
